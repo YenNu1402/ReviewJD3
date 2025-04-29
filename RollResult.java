@@ -1,7 +1,11 @@
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class RollResult { // Lỗi cú pháp: Thêm dấu '{' mở đầu classclass
 
+	 /** Logger để ghi log các hành động trong class */
+	 private static final Logger logger = logger.getLogger(RollResult.class.getName());
 	/**
 	  *Refactor: Thêm từ khóa "private" cho các biến instance
 	  *Lý do: Baỏ vệ tính đóng gói (encapsulation), chỉ cho phép truy cập trong class.
@@ -21,6 +25,8 @@ public class RollResult { // Lỗi cú pháp: Thêm dấu '{' mở đầu classc
 		 *lý do: thisRolls không hợp lệ. Vì cần có dấu "." để truy cập biến instance
 		 */
         this.rolls = rolls; 
+		logger.log(Level.INFO, "Tạo RollResult (private constructor) với total={0}, modifier={1}, rolls={2}", 
+                   new Object[]{total, modifier, rolls});
     }
 
     public RollResult(int bonus) {
@@ -30,7 +36,8 @@ public class RollResult { // Lỗi cú pháp: Thêm dấu '{' mở đầu classc
 		 *Refactor: Sử dụng diamond operator '<>', thay vì 'new Vector<Integer>()'
 		 *Lý do: Java hỗ trợ diamond operator giúp code ngắn gọn, rõ ràng hơn.
 		 */
-        rolls = new Vector<>();
+        this.rolls = new Vector<>();
+		logger.log(Level.INFO, "Tạo RollResult với bonus={0}", bonus);
     }
 
 	/**
@@ -40,20 +47,34 @@ public class RollResult { // Lỗi cú pháp: Thêm dấu '{' mở đầu classc
     public void addResult(int res) {
         total += res;
         rolls.add(res);
+		logger.log(Level.INFO, "Thêm kết quả: {0}. Tổng mới: {1}", new Object[]{res, total});
     }
 
+	   /**
+     * Kết hợp đối tượng hiện tại với một đối tượng RollResult khác.
+     * Tổng điểm, modifier và danh sách rolls sẽ được gộp lại.
+     * 
+     * @param r2 Đối tượng RollResult cần gộp
+     * @return Một đối tượng RollResult mới chứa kết quả tổng hợp
+     */
     public RollResult andThen(RollResult r2) {
 		/**
 		 *Refactor: Đổi tên biến tránh trùng tên với tên biến 'total' ở trên
 		 *Lý do: Tránh hiểu nhầm với biến instance 'this.totaltotal'
 		 */
         int newTotal = this.total + r2.total; 
-        Vector<Integer> rolls = new Vector<>();
-        rolls.addAll(this.rolls);
-        rolls.addAll(r2.rolls);
+        Vector<Integer> newRolls = new Vector<>();
+        newRolls.addAll(this.rolls);
+        newRolls.addAll(r2.rolls);
+		logger.log(Level.INFO, "Kết hợp với RollResult khác: total mới={0}", newTotal);
         return new RollResult(newTotal, this.modifier + r2.modifier,rolls);
     }
 
+	 /**
+     * Trả về chuỗi biểu diễn của đối tượng RollResult hiện tại.
+     * 
+     * @return Chuỗi thể hiện tổng điểm, các roll, và modifier nếu có
+     */
     public String toString() {
 		/**
 		 *Refactor: Dùng StringBuilder thay vì nối chuỗi trực tiếp 
@@ -64,6 +85,7 @@ public class RollResult { // Lỗi cú pháp: Thêm dấu '{' mở đầu classc
         if (modifier != 0) {
             sb.append(" (modifier: ").append(modifier).append(")");
         }
+		logger.log(Level.FINE, "Chuỗi kết quả: {0}", sb.toString());
         return sb.toString();
     }
 	/**
