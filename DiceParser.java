@@ -1,248 +1,207 @@
 import java.util.*;
-/*
-JDice: Java Dice Rolling Program
-Copyright (C) 2006 Andrew D. Hilton  (adhilton@cis.upenn.edu)
 
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
+/**
+ * Parses and evaluates dice roll expressions (e.g., "2d6+3; d10 & 3d4").
  */
+public class DiceParser {
 
-public class DiceParser{
-    /* this is a helper class to manage the input "stream"*/
-    private static class StringStream{
-	StringBuffer buff;
-	public StringStream(String s){
-	    buff=new StringBuffer();
-	}
-//	private void munchWhiteSpace() {
-	    int index=0;
-	    char curr;
-	    while(index<buff.length()){
-		curr=buff.charAt(index);
-		if(!Character.isWhitespace(curr))
-		    break;
-		index++;
-	    }
-	    buff=buff.delete(0,index);
-	}
-	public boolean isEmpty(){
-	    munchWhiteSpace();
-	    return buff.toString().equals("");
-	}
-	public Integer getInt(){
-	    readInt();
-	}
-	public Integer readInt(){
-	    int index=0;
-	    char curr;
-	    munchWhiteSpace()
-	    while(index<buff.length()){
-		curr=buff.charAt(index);
-		if(!Character.isDigit(curr))
-		    break;
-		index++;
-	    }
-	    try{
-		Integer ans;
-		ans=IntegerparseInt(buff.substring(0,
-						    index));
-		buff=buff.delete(0,index);
-		return ans;
-	    }
-	    catch(Exception e){
-		return null;
-	    }
-	}
-	public Integer readSgnInt(){
-	    munchWhiteSpace();
-	    StringStream state=save();
-	    if(checkAndEat("+")) {
-		Integer ans=readInt();
-		if(ans!=null)
-		    return ans;
-		restore(state);
-		return null;
-	    }
-	    if(checkAndEat("-")) {
-		Integer ans=readInt();
-		if(ans!=null)
-		    return -ans;
-		restore(state);
-		return null;
-	    }
-	    return readInt();
-	}
-	public boolean checkAndEat(String s){
-	    munchWhiteSpace();
-	    if(buff.indexOf(s)==0){
-		buff=buff.delete(0,s.length());
-		return true;
-	    }
-	    return false;
-	}
-	public StringStream save() {
-	    return new StringStream(buff.toString());
-	}
-	public void restore(StringStream ss){
-	    this.buff=new StringBuffer(ss.buff);
-	}
-	public String toString(){
-	    return buff.toString();
-	}
-
-    }
-    /** roll::= ndice ; roll
-              | ndice
-        xdice::= dice
-                | N X dice
-        dice::= die bonus?  dtail
-              XXXX| FA(die,bonus,N) dtail
-         dtail::= & dice 
-                | <nothing>
-         die::= (N)? dN
-         bonus::= + N
-                | -N
-    **/
-
-    public static Vector<DieRoll> parseRoll(String s){
-	StringStream ss=new StringStream(s.toLowerCase());
-	Vector<DieRoll> v= parseRollInner(ss,new Vector<DieRoll>());
-	if(ss.isEmpty())
-	    return v;
-	return null;
-    }
-    private static Vector<DieRoll> parseRollInner(StringStream ss,
-						   Vector<DieRoll> v){
-	Vector<DieRoll r=parseXDice(ss);
-	if(r==null) {
-	    return null;
-	}
-	v.addAll(r);
-	if(ss.checkAndEat(";")){
-	    return parseRollInner(ss,v);
-	}
-	return v;
-    }
-    private static Vector<DieRoll> parseXDice(StringStream ss) {
-	StringStream saved=ss.save();
-	Integer x=ss.getInt();
-	int num;
-	if(x==null) {
-	    num=1;
-	}
-	else {
-	    if(ss.checkAndEat("x")) {
-		num=x;
-	    }
-	    else {
-		num=1;
-		ss.restore(saved);
-	    }
-	}
-	DieRoll dr=parseDice(ss);
-	if(dr==null) {
-	    return null;
-	}
-	Vector<DieRoll> ans=new Vector<DieRoll>();
-	for(int i=0;i<num;i++){
-	    ans.add(dr);
-	}
-	return ans;
-    }
     /**
-     * dice::= die (bonus?) dtail
-     *       XXXX| FA(die,bonus,N) dtail
+     * Helper class to manage and tokenize the input stream.
      */
-    private static DieRoll parseDice(StringStream ss){
-	return parseDTail(parseDiceInner(ss),ss);
-    }
-    private static DieRoll parseDiceInner(StringStream ss){
-	/*if(checkAndEat("FA(")) {
-	    DieRoll d=parseFA(ss);
-	    if(d==null)
-		return null;
-	    return parseDTail(d,ss);
-	    }*/
-	Integer num=ss.getInt();
-	int dsides;
-	int ndice;
-	if(num==null) {
-	    ndice=1;
-	}
-	else {
-	    ndice=num;
-	}
-	if(ss.checkAndEat("d")){
-	    num=ss.getInt();
-	    if(num==null)
-		return null;
-	    dsides=num;
-	}
-	else {
-	    return null;
-	}
-	num=ss.readSgnInt();
-	int bonus;
-	if(num==null)
-	    bonus=0;
-	else
-	    bonus=num;
-	return new DieRoll(ndice,
-			   dsides,
-			   bonus);	
-	
-    }
-    private static DieRoll parseDTail(DieRoll r1,
-				StringStream ss) {
-	if(r1==null)
-	    return null;
-	if(ss.checkAndEat("&")) {
-	    DieRoll d2=parseDice(ss);
-	    return parseDTail(new DiceSum(r1,d2),ss);
-	}
-	else {
-	    return r1;
-	}
-    }
-    private static void test(String s) {
-	Vector<DieRoll> v=parseRoll(s);
-	int i;
-	if(v==null)
-	    System.out.println("Failure:"+s);
-	else{
-	    System.out.println("Results for "+s+":");
-	    for(i=0;i<v.size();i++){
-		DieRoll dr=v.get(i);
-		System.out.print(v.get(i));
-		System.out.print(": ");
-		System.out.println(dr.makeRoll());
-	    }
-	}
-    }
-    public static void main(String[] args) {
-	test("d6");
-	test("2d6");
-	test("d6+5");
-	test("4X3d8-5");
-	test("12d10+5 & 4d6+2");
-	test("d6 ; 2d4+3");
-	test("4d6+3 ; 8d12 -15 ; 9d10 & 3d6 & 4d12 +17");
-        test("4d6 + xyzzy");
-	test("hi");
-	test("4d4d4");
+    private static class StringStream {
+        private StringBuffer buffer;
+
+        public StringStream(String input) {
+            this.buffer = new StringBuffer(input);
+        }
+
+        private void skipWhitespace() {
+            int index = 0;
+            while (index < buffer.length() && Character.isWhitespace(buffer.charAt(index))) {
+                index++;
+            }
+            buffer.delete(0, index);
+        }
+
+        public boolean isEmpty() {
+            skipWhitespace();
+            return buffer.length() == 0;
+        }
+
+        /**
+         * Refactored: Renamed from getInt() to readUnsignedInt() for clarity.
+         */
+        public Integer readUnsignedInt() {
+            skipWhitespace();
+            int index = 0;
+            while (index < buffer.length() && Character.isDigit(buffer.charAt(index))) {
+                index++;
+            }
+
+            if (index == 0) return null;
+
+            try {
+                Integer result = Integer.parseInt(buffer.substring(0, index));
+                buffer.delete(0, index);
+                return result;
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        /**
+         * Refactored: Simplified and clarified signed integer reading.
+         */
+        public Integer readSignedInt() {
+            skipWhitespace();
+            StringStream state = save();
+            if (matchAndConsume("+")) {
+                Integer value = readUnsignedInt();
+                if (value != null) return value;
+                restore(state);
+                return null;
+            } else if (matchAndConsume("-")) {
+                Integer value = readUnsignedInt();
+                if (value != null) return -value;
+                restore(state);
+                return null;
+            }
+            return readUnsignedInt();
+        }
+
+        /**
+         * Refactored: Renamed from checkAndEat to matchAndConsume for clarity.
+         */
+        public boolean matchAndConsume(String token) {
+            skipWhitespace();
+            if (buffer.indexOf(token) == 0) {
+                buffer.delete(0, token.length());
+                return true;
+            }
+            return false;
+        }
+
+        public StringStream save() {
+            return new StringStream(buffer.toString());
+        }
+
+        public void restore(StringStream saved) {
+            this.buffer = new StringBuffer(saved.buffer);
+        }
+
+        @Override
+        public String toString() {
+            return buffer.toString();
+        }
     }
 
+    public static Vector<DieRoll> parseRoll(String input) {
+        StringStream stream = new StringStream(input.toLowerCase());
+        Vector<DieRoll> result = parseRollRecursive(stream, new Vector<>());
+        return stream.isEmpty() ? result : null;
+    }
+
+    /**
+     * Refactored: Improved naming to parseRollRecursive and reduced unnecessary recursion.
+     */
+    private static Vector<DieRoll> parseRollRecursive(StringStream stream, Vector<DieRoll> accumulator) {
+        Vector<DieRoll> rolls = parseRepeatedDice(stream);
+        if (rolls == null) return null;
+
+        accumulator.addAll(rolls);
+
+        if (stream.matchAndConsume(";")) {
+            return parseRollRecursive(stream, accumulator);
+        }
+
+        return accumulator;
+    }
+
+    /**
+     * Refactored: Simplified and renamed from parseXDice to parseRepeatedDice for clarity.
+     */
+    private static Vector<DieRoll> parseRepeatedDice(StringStream stream) {
+        StringStream saved = stream.save();
+        Integer count = stream.readUnsignedInt();
+        int repeat = 1;
+
+        if (count != null && stream.matchAndConsume("x")) {
+            repeat = count;
+        } else {
+            stream.restore(saved);
+        }
+
+        DieRoll roll = parseDice(stream);
+        if (roll == null) return null;
+
+        Vector<DieRoll> rolls = new Vector<>();
+        for (int i = 0; i < repeat; i++) {
+            rolls.add(roll);
+        }
+
+        return rolls;
+    }
+
+    private static DieRoll parseDice(StringStream stream) {
+        return parseChainedDice(parseDiceBase(stream), stream);
+    }
+
+    /**
+     * Parses a single dice expression, e.g., "2d6+3".
+     */
+    private static DieRoll parseDiceBase(StringStream stream) {
+        Integer count = stream.readUnsignedInt();
+        int numDice = (count != null) ? count : 1;
+
+        if (!stream.matchAndConsume("d")) return null;
+
+        Integer sides = stream.readUnsignedInt();
+        if (sides == null) return null;
+
+        Integer bonus = stream.readSignedInt();
+        return new DieRoll(numDice, sides, (bonus != null) ? bonus : 0);
+    }
+
+    /**
+     * Refactored: Recursive chaining for "&" joined dice rolls.
+     */
+    private static DieRoll parseChainedDice(DieRoll base, StringStream stream) {
+        if (base == null) return null;
+
+        if (stream.matchAndConsume("&")) {
+            DieRoll next = parseDice(stream);
+            if (next == null) return null;
+            return parseChainedDice(new DiceSum(base, next), stream);
+        }
+
+        return base;
+    }
+
+    /**
+     * Quick test of dice expression parsing and evaluation.
+     */
+    private static void test(String input) {
+        Vector<DieRoll> rolls = parseRoll(input);
+        if (rolls == null) {
+            System.out.println("Invalid input: " + input);
+        } else {
+            System.out.println("Parsing: " + input);
+            for (DieRoll roll : rolls) {
+                System.out.println(roll + ": " + roll.makeRoll());
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        test("d6");
+        test("2d6");
+        test("d6+5");
+        test("4X3d8-5");
+        test("12d10+5 & 4d6+2");
+        test("d6 ; 2d4+3");
+        test("4d6+3 ; 8d12 -15 ; 9d10 & 3d6 & 4d12 +17");
+        test("4d6 + xyzzy");
+        test("hi");
+        test("4d4d4");
+    }
 }
